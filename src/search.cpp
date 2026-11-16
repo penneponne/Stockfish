@@ -1331,6 +1331,9 @@ moves_loop:  // When in check, search starts here
             else if (ttData.value >= beta || cutNode)
                 extension = -3;
         }
+        else if (!rootNode && move == ttData.move && !excludedMove && depth <= 7 && !ss->inCheck
+                 && ss->staticEval <= alpha - 51 && ttData.bound == BOUND_LOWER)
+            extension = 1;
 
         u64 nodeCount = rootNode ? u64(nodes) : 0;
 
