@@ -1211,8 +1211,11 @@ moves_loop:  // When in check, search starts here
                 // Futility pruning for captures
                 if (!givesCheck && lmrDepth < 8)
                 {
-                    Value futilityValue = ss->staticEval + 234 + 247 * lmrDepth
-                                        + PieceValue[capturedPiece] + 134 * captHist / 1024;
+                    Value futilityValue =
+                      ss->staticEval + 234 + 247 * lmrDepth + PieceValue[capturedPiece]
+                      + 134 * captHist / 1024
+                      + (move.type_of() == PROMOTION ? PieceValue[move.promotion_type()] - PawnValue
+                                                     : 0);
 
                     if (futilityValue <= alpha)
                         continue;
