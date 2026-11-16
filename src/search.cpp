@@ -1332,6 +1332,9 @@ moves_loop:  // When in check, search starts here
                 extension = -3;
         }
 
+        const bool badBlock = ss->inCheck && !capture && !givesCheck && type_of(movedPiece) != KING
+                           && !pos.see_ge(move, 0);
+
         u64 nodeCount = rootNode ? u64(nodes) : 0;
 
         // Step 17. Make the move
@@ -1360,6 +1363,9 @@ moves_loop:  // When in check, search starts here
         // Increase reduction if ttMove is a capture
         if (ttCapture)
             r += 1079;
+
+        if (badBlock)
+            r += 1024;
 
         // Increase reduction if next ply has a lot of fail high
         if ((ss + 1)->cutoffCnt > 1)
