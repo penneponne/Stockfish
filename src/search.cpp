@@ -338,8 +338,9 @@ bool Search::Worker::iterative_deepening() {
     lowPlyHistory.fill(102);
 
     for (Color c : {WHITE, BLACK})
-        for (int i = 0; i < UINT_16_HISTORY_SIZE; i++)
-            mainHistory[c][i] = mainHistory[c][i] * 729 / 1024;
+        for (int t = 0; t < 4; t++)
+            for (int i = 0; i < UINT_16_HISTORY_SIZE; i++)
+                mainHistory[c][t][i] = mainHistory[c][t][i] * 729 / 1024;
 
     // Iterative deepening loop until requested to stop or the target depth is reached
     while (rootDepth + 1 < MAX_PLY && !threads.stop
@@ -1005,7 +1006,9 @@ Value Search::Worker::search(
     if (((ss - 1)->currentMove).is_ok() && !(ss - 1)->inCheck && !priorCapture)
     {
         int evalDiff = std::clamp(-int((ss - 1)->staticEval + ss->staticEval), -189, 194) + 60;
-        mainHistory[~us][((ss - 1)->currentMove).raw()] << evalDiff * 11;
+        mainHistory[~us][threat_index((ss - 1)->threats, (ss - 1)->currentMove)]
+                   [((ss - 1)->currentMove).raw()]
+          << evalDiff * 11;
         if (!ttHit && type_of(pos.piece_on(prevSq)) != PAWN
             && ((ss - 1)->currentMove).type_of() != PROMOTION)
             sharedHistory.pawn_entry(pos)[pos.piece_on(prevSq)][prevSq] << evalDiff * 13;
@@ -1094,6 +1097,8 @@ Value Search::Worker::search(
     {
         assert(probCutBeta < VALUE_INFINITE && probCutBeta > beta);
 
+        ss->threats = pos.threats_by(ALL_PIECES);
+
         MovePicker mp(pos, ttData.move, probCutBeta - ss->staticEval, &captureHistory);
         Depth      probCutDepth = depth - (improving ? 5 : 3);
 
@@ -1131,6 +1136,8 @@ Value Search::Worker::search(
     }
 
 moves_loop:  // When in check, search starts here
+
+    ss->threats = pos.threats_by(ALL_PIECES);
 
     // Step 13. A small ProbCut idea
     probCutBeta = beta + 428;
@@ -1235,7 +1242,7 @@ moves_loop:  // When in check, search starts here
                 if (history < -4136 * depth)
                     continue;
 
-                history += 69 * mainHistory[us][move.raw()] / 32;
+                history += 69 * mainHistory[us][threat_index(ss->threats, move)][move.raw()] / 32;
 
                 // (*Scaler): Generally, lower divisors scale well
                 lmrDepth += history / lmr_divisor(depth);
@@ -1373,10 +1380,10 @@ moves_loop:  // When in check, search starts here
             ss->statScore = 873 * int(PieceValue[pos.captured_piece()]) / 128
                           + captureHistory[movedPiece][move.to_sq()][type_of(pos.captured_piece())];
         else
-            ss->statScore =
-              (2252 * mainHistory[us][move.raw()] + 1126 * (*contHist[0])[movedPiece][move.to_sq()]
-               + 1093 * (*contHist[1])[movedPiece][move.to_sq()])
-              / 1024;
+            ss->statScore = (2252 * mainHistory[us][threat_index(ss->threats, move)][move.raw()]
+                             + 1126 * (*contHist[0])[movedPiece][move.to_sq()]
+                             + 1093 * (*contHist[1])[movedPiece][move.to_sq()])
+                          / 1024;
 
         // Decrease/increase reduction for moves with a good/bad history
         r -= ss->statScore * 439 / 4096;
@@ -1623,7 +1630,9 @@ moves_loop:  // When in check, search starts here
         update_continuation_histories(ss - 1, pos.piece_on(prevSq), prevSq,
                                       scaledBonus * 263 / 16384);
 
-        mainHistory[~us][((ss - 1)->currentMove).raw()] << scaledBonus * 215 / 32768;
+        mainHistory[~us][threat_index((ss - 1)->threats, (ss - 1)->currentMove)]
+                   [((ss - 1)->currentMove).raw()]
+          << scaledBonus * 215 / 32768;
 
         if (type_of(pos.piece_on(prevSq)) != PAWN && ((ss - 1)->currentMove).type_of() != PROMOTION)
             sharedHistory.pawn_entry(pos)[pos.piece_on(prevSq)][prevSq] << scaledBonus * 324 / 8192;
@@ -2072,7 +2081,8 @@ void update_quiet_histories(
   const Position& pos, Stack* ss, Search::Worker& workerThread, Move move, int bonus) {
 
     Color us = pos.side_to_move();
-    workerThread.mainHistory[us][move.raw()] << bonus;  // Untuned to prevent duplicate effort
+    workerThread.mainHistory[us][threat_index(pos.threats_by(ALL_PIECES), move)][move.raw()]
+      << bonus;  // Untuned to prevent duplicate effort
 
     if (ss->ply < LOW_PLY_HISTORY_SIZE)
         workerThread.lowPlyHistory[ss->ply][move.raw()] << bonus * 712 / 1024;
