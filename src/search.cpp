@@ -170,6 +170,14 @@ bool is_shuffling(Move move, Stack* const ss, const Position& pos) {
         && (ss - 2)->currentMove.from_sq() == (ss - 4)->currentMove.to_sq();
 }
 
+Bitboard king_zone5(Square s) {
+    Bitboard b = square_bb(s);
+    b |= shift(b, EAST) | shift(b, WEST);
+    b |= shift(b, EAST) | shift(b, WEST);
+    b |= shift(b, NORTH) | shift(b, SOUTH);
+    return b | shift(b, NORTH) | shift(b, SOUTH);
+}
+
 }  // namespace
 
 Search::Worker::Worker(SharedState&                   sharedState,
@@ -1360,6 +1368,10 @@ moves_loop:  // When in check, search starts here
         // Increase reduction if ttMove is a capture
         if (ttCapture)
             r += 1079;
+
+        if (type_of(movedPiece) != KING || capture
+            || popcount(pos.pieces(~us) & king_zone5(move.from_sq())) < 3)
+            r += 256;
 
         // Increase reduction if next ply has a lot of fail high
         if ((ss + 1)->cutoffCnt > 1)
