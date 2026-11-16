@@ -210,6 +210,17 @@ void Search::Worker::start_searching() {
         return;
     }
 
+    {
+        SearchManager* sm   = main_manager();
+        const int      dp   = rootPos.game_ply() - sm->taPly;
+        const bool     lag  = sm->taPly >= 0 && (dp == 2 || dp == 4);
+        const double   lead = lag ? sm->taLead : 0.0;
+        const double   z    = 0.6 * std::log2(std::max(1e-9, 1.0 - lead * lead)) - 0.4 * lead
+                            - 0.6 * (lag ? sm->taTrend : 0.0);
+        sm->taScale =
+          std::exp2(z >= 0 ? 0.322 * std::tanh(z / 0.322) : -1.515 * std::tanh(-z / 1.515));
+    }
+
     main_manager()->tm.init(limits, rootPos.side_to_move(), rootPos.game_ply(), options,
                             main_manager()->originalTimeAdjust);
     tt.new_search();
@@ -257,6 +268,25 @@ void Search::Worker::start_searching() {
 
     main_manager()->bestPreviousScore        = bestThread->rootMoves[0].score;
     main_manager()->bestPreviousAverageScore = bestThread->rootMoves[0].averageScore;
+
+    if (!main_manager()->ponder)
+    {
+        SearchManager* sm  = main_manager();
+        const Value    v   = bestThread->rootMoves[0].score;
+        const int      dp  = rootPos.game_ply() - sm->taPly;
+        const bool     lag = sm->taPly >= 0 && (dp == 2 || dp == 4);
+        if (!lag)
+            sm->taLead = 0.0;
+        sm->taTrend = 0.0;
+        if (v != -VALUE_INFINITE && v != VALUE_INFINITE)
+        {
+            const double lead =
+              (UCIEngine::win_rate(v, rootPos) - UCIEngine::win_rate(-v, rootPos)) / 1000.0;
+            sm->taTrend = lag ? lead - sm->taLead : 0.0;
+            sm->taLead  = lead;
+        }
+        sm->taPly = rootPos.game_ply();
+    }
 
     if (bestThread->rootMoves[0].pv.size() == 1
         && bestThread->rootMoves[0].extract_ponder_from_tt(tt, rootPos))
@@ -610,7 +640,7 @@ bool Search::Worker::iterative_deepening() {
               interpolate(i64(nodesEffort), i64(75800), i64(104510), 0.969, 0.714), 0.693, 0.838);
 
             double totalTime = mainThread->tm.optimum() * fallingEval * reduction
-                             * bestMoveInstability * highBestMoveEffort;
+                             * bestMoveInstability * highBestMoveEffort * mainThread->taScale;
 
             if (rootMoves.size() == 1)
                 // Cap used time to 0.5s for a better viewer experience

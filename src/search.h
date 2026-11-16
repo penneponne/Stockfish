@@ -304,6 +304,10 @@ class SearchManager {
     Value                bestPreviousScore;
     Value                bestPreviousAverageScore;
     bool                 stopOnPonderhit;
+    double               taScale = 1.0;
+    double               taLead  = 0.0;
+    double               taTrend = 0.0;
+    int                  taPly   = -1;
 
     const UpdateContext& updates;
 };

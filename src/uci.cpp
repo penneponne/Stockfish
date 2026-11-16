@@ -553,6 +553,8 @@ int win_rate_model(Value v, const Position& pos) {
 }
 }
 
+int UCIEngine::win_rate(Value v, const Position& pos) { return win_rate_model(v, pos); }
+
 std::string UCIEngine::format_score(const Score& s) {
     constexpr int TB_CP = 20000;
     const auto    format =
