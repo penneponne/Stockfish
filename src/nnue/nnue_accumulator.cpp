@@ -1002,6 +1002,12 @@ void update_accumulator_refresh_cache(Color                     perspective,
     append_changed_psq_indices(perspective, ksq, entry.pieces, entry.pieceBB, pos.piece_array(),
                                pos.pieces(), removed, added);
 
+    constexpr usize RowPrefetchBytes = Dimensions * sizeof(WeightType) * 3 / 4;
+    for (const auto* list : {&removed, &added})
+        for (const auto index : *list)
+            for (usize o = 0; o < RowPrefetchBytes; o += 64)
+                prefetch(reinterpret_cast<const char*>(&psqWeights[usize(index) * Dimensions]) + o);
+
     entry.pieceBB = pos.pieces();
     entry.pieces  = pos.piece_array();
 
