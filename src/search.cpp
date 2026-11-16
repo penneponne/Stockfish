@@ -166,6 +166,9 @@ bool is_shuffling(Move move, Stack* const ss, const Position& pos) {
         return false;
     if (pos.state()->pliesFromNull < 6 || ss->ply < 20)
         return false;
+    if (move.to_sq() != (ss - 4)->currentMove.from_sq()
+        && (ss - 2)->currentMove.to_sq() != (ss - 4)->currentMove.from_sq())
+        return false;
     return move.from_sq() == (ss - 2)->currentMove.to_sq()
         && (ss - 2)->currentMove.from_sq() == (ss - 4)->currentMove.to_sq();
 }
