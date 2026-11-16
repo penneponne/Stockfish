@@ -1334,6 +1334,8 @@ moves_loop:  // When in check, search starts here
 
         u64 nodeCount = rootNode ? u64(nodes) : 0;
 
+        const bool safeQuietCheck = givesCheck && !capture && pos.see_ge(move, 0);
+
         // Step 17. Make the move
         do_move(pos, move, st, givesCheck, capture, ss);
 
@@ -1383,6 +1385,9 @@ moves_loop:  // When in check, search starts here
 
         if (!capture && !is_decisive(alpha))
             r += 3 * std::clamp(alpha - eval, -64, 96);
+
+        if (safeQuietCheck)
+            r -= 512;
 
         // Scale up reductions for expected ALL nodes
         if (allNode)
