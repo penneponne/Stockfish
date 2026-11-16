@@ -1011,6 +1011,17 @@ void update_accumulator_refresh_cache(Color                     perspective,
 
     accumulator.computed[perspective] = true;
 
+    if (removed.size() == 0 && added.size() == 0)
+    {
+        for (IndexType j = 0; j < Dimensions; increment_index(j))
+        {
+            Tile acc = load_tile(j, entry.accumulation.data());
+            acc      = apply_threat_features<+1>(j, acc, active, featureTransformer);
+            store_tile(j, accumulator.accumulation[perspective].data(), acc);
+        }
+        return;
+    }
+
     for (IndexType j = 0; j < Dimensions; increment_index(j))
     {
         Tile acc = load_tile(j, entry.accumulation.data());
