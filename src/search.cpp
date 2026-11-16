@@ -1814,6 +1814,8 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta)
         // Step 6. Pruning
         if (!is_loss(bestValue))
         {
+            bool seeImplied = false;
+
             // Futility pruning and moveCount pruning
             if (!givesCheck && move.to_sq() != prevSq && !is_loss(futilityBase)
                 && move.type_of() != PROMOTION)
@@ -1837,6 +1839,8 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta)
                     bestValue = std::max(bestValue, std::min(alpha, futilityBase));
                     continue;
                 }
+
+                seeImplied = alpha - futilityBase >= -74;
             }
 
             // Skip non-captures
@@ -1844,7 +1848,7 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta)
                 continue;
 
             // Do not search moves with bad enough SEE values
-            if (!pos.see_ge(move, -74))
+            if (!seeImplied && !pos.see_ge(move, -74))
                 continue;
         }
 
