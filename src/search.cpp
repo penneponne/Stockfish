@@ -1046,6 +1046,7 @@ Value Search::Worker::search(
         R -= seekMate * R / 2;
         do_null_move(pos, st, ss);
 
+        (ss + 1)->lastCriticalPly = ss->ply + 1;
         Value nullValue = -search<NonPV>(pos, ss + 1, -beta, -beta + 1, depth - R, false);
 
         undo_null_move(pos);
@@ -1113,8 +1114,11 @@ Value Search::Worker::search(
 
             // If the qsearch held, perform the regular search
             if (value >= probCutBeta && probCutDepth > 0)
+            {
+                (ss + 1)->lastCriticalPly = ss->lastCriticalPly;
                 value = -search<NonPV>(pos, ss + 1, -probCutBeta, -probCutBeta + 1, probCutDepth,
                                        !cutNode);
+            }
 
             undo_move(pos, move);
 
@@ -1280,9 +1284,12 @@ moves_loop:  // When in check, search starts here
             Value singularBeta  = ttData.value - (59 + 66 * (ss->ttPv && !PvNode)) * depth / 63;
             Depth singularDepth = newDepth / 2;
 
-            ss->excludedMove = move;
+            const int savedCriticalPly = ss->lastCriticalPly;
+            ss->lastCriticalPly        = ss->ply;
+            ss->excludedMove           = move;
             value = search<NonPV>(pos, ss, singularBeta - 1, singularBeta, singularDepth, cutNode);
-            ss->excludedMove = Move::none();
+            ss->excludedMove    = Move::none();
+            ss->lastCriticalPly = savedCriticalPly;
 
             if (value < singularBeta)
             {
@@ -1395,6 +1402,8 @@ moves_loop:  // When in check, search starts here
         // Apply the computed LMR
         if (depth >= 2 && moveCount > 1)
         {
+            r += 261 - 128 * std::min(ss->ply - ss->lastCriticalPly, 8);
+
             // In general we want to cap the LMR depth search at newDepth, but when
             // reduction is negative, we allow this move a limited search extension
             // beyond the first move depth. To avoid search explosion, extensions
@@ -1402,7 +1411,8 @@ moves_loop:  // When in check, search starts here
             Depth d =
               std::max(1, newDepth + std::min(-r / 1024, ss->ply < 2 * rootDepth ? 2 : 0)) + PvNode;
 
-            ss->reduction = newDepth - d;
+            ss->reduction             = newDepth - d;
+            (ss + 1)->lastCriticalPly = ss->ply + 1;
             value         = -search<NonPV>(pos, ss + 1, -(alpha + 1), -alpha, d, true);
             ss->reduction = 0;
 
@@ -1418,7 +1428,10 @@ moves_loop:  // When in check, search starts here
                 newDepth += doDeeperSearch - doShallowerSearch;
 
                 if (newDepth > d)
+                {
+                    (ss + 1)->lastCriticalPly = ss->lastCriticalPly;
                     value = -search<NonPV>(pos, ss + 1, -(alpha + 1), -alpha, newDepth, !cutNode);
+                }
 
                 // Post LMR continuation history updates
                 update_continuation_histories(ss, movedPiece, move.to_sq(), 1334);
@@ -1431,6 +1444,8 @@ moves_loop:  // When in check, search starts here
             // Increase reduction if ttMove is not present
             if (!ttData.move)
                 r += 1127;
+
+            (ss + 1)->lastCriticalPly = moveCount == 1 ? ss->lastCriticalPly : ss->ply + 1;
 
             // If expected reduction is high, we reduce search depth here
             value = -search<NonPV>(pos, ss + 1, -(alpha + 1), -alpha,
@@ -1453,6 +1468,7 @@ moves_loop:  // When in check, search starts here
                     || ttData.depth > 1))
                 newDepth = std::max(newDepth, 1);
 
+            (ss + 1)->lastCriticalPly = ss->lastCriticalPly;
             value = -search<PV>(pos, ss + 1, -beta, -alpha, newDepth, false);
         }
 
