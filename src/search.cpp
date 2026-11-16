@@ -945,6 +945,12 @@ Value Search::Worker::search(
         }
     }
 
+    if (!PvNode && !ss->ttPv && !ss->inCheck && !excludedMove && ss->ttHit && is_valid(ttData.value)
+        && !is_decisive(ttData.value) && (ttData.bound & BOUND_LOWER) && ttData.value >= beta + 605
+        && ttData.depth >= depth - 4 && ttData.move && pos.legal(ttData.move)
+        && pos.rule50_count() < 96)
+        return ttData.value;
+
     // Step 7. Tablebases probe
     if (!rootNode && !excludedMove && tbConfig.cardinality)
     {
