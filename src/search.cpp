@@ -998,6 +998,9 @@ Value Search::Worker::search(
         }
     }
 
+    if (!rootNode && !excludedMove && ttData.move)
+        prefetch(tt.get_cluster(pos.prefetch_key(ttData.move)));
+
     if (ss->inCheck)
         goto moves_loop;
 
