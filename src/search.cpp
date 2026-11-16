@@ -1280,6 +1280,7 @@ moves_loop:  // When in check, search starts here
             Value singularBeta  = ttData.value - (59 + 66 * (ss->ttPv && !PvNode)) * depth / 63;
             Depth singularDepth = newDepth / 2;
 
+            ss->priorMalus   = 0;
             ss->excludedMove = move;
             value = search<NonPV>(pos, ss, singularBeta - 1, singularBeta, singularDepth, cutNode);
             ss->excludedMove = Move::none();
@@ -1307,6 +1308,10 @@ moves_loop:  // When in check, search starts here
             else if (value >= beta && !is_decisive(value))
             {
                 ttMoveHistory << -421 - 110 * depth;
+
+                if (ss->priorMalus)
+                    update_continuation_histories(ss - 1, pos.piece_on(prevSq), prevSq,
+                                                  ss->priorMalus);
 
                 if (!ss->inCheck && value > ss->staticEval)
                 {
@@ -2026,7 +2031,13 @@ void update_all_stats(const Position& pos,
     // Extra penalty for a quiet early move that was not a TT move in
     // previous ply when it gets refuted.
     if (prevSq != SQ_NONE && ((ss - 1)->moveCount == 1 + (ss - 1)->ttHit) && !pos.captured_piece())
-        update_continuation_histories(ss - 1, pos.piece_on(prevSq), prevSq, -malus * 713 / 1024);
+    {
+        if (ss->excludedMove)
+            ss->priorMalus = -malus * 713 / 1024;
+        else
+            update_continuation_histories(ss - 1, pos.piece_on(prevSq), prevSq,
+                                          -malus * 713 / 1024);
+    }
 
     // Decrease stats for all non-best capture moves
     for (Move move : capturesSearched)
