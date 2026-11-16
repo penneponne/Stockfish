@@ -772,6 +772,7 @@ Value Search::Worker::search(
     Move  move, excludedMove, bestMove;
     Depth extension, newDepth;
     Value bestValue, value, eval, maxValue, probCutBeta;
+    Value singularValue = VALUE_NONE, ttMoveValue = VALUE_NONE;
     bool  givesCheck, improving, priorCapture, opponentWorsening;
     bool  capture, ttCapture;
     int   priorReduction;
@@ -1283,6 +1284,7 @@ moves_loop:  // When in check, search starts here
             ss->excludedMove = move;
             value = search<NonPV>(pos, ss, singularBeta - 1, singularBeta, singularDepth, cutNode);
             ss->excludedMove = Move::none();
+            singularValue    = value;
 
             if (value < singularBeta)
             {
@@ -1395,6 +1397,9 @@ moves_loop:  // When in check, search starts here
         // Apply the computed LMR
         if (depth >= 2 && moveCount > 1)
         {
+            if (is_valid(ttMoveValue) && is_valid(singularValue))
+                r += std::clamp(496 * (ttMoveValue - singularValue - 185) / 128, 0, 2021);
+
             // In general we want to cap the LMR depth search at newDepth, but when
             // reduction is negative, we allow this move a limited search extension
             // beyond the first move depth. To avoid search explosion, extensions
@@ -1432,6 +1437,9 @@ moves_loop:  // When in check, search starts here
             if (!ttData.move)
                 r += 1127;
 
+            if (is_valid(ttMoveValue) && is_valid(singularValue))
+                r += std::clamp(351 * (ttMoveValue - singularValue - 188) / 128, 0, 2167);
+
             // If expected reduction is high, we reduce search depth here
             value = -search<NonPV>(pos, ss + 1, -(alpha + 1), -alpha,
                                    newDepth - (r > 5234) - (r > 5487 && newDepth > 2), !cutNode);
@@ -1467,6 +1475,9 @@ moves_loop:  // When in check, search starts here
         // principal variation or transposition table.
         if (threads.stop.load(std::memory_order_relaxed))
             return VALUE_ZERO;
+
+        if (move == ttData.move)
+            ttMoveValue = value;
 
         if (rootNode)
         {
