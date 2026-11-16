@@ -1665,6 +1665,16 @@ moves_loop:  // When in check, search starts here
         auto bonus =
           std::clamp(int(bestValue - ss->staticEval) * depth * (bestMove ? 12 : 18) / 128,
                      -CORRECTION_HISTORY_LIMIT / 4, CORRECTION_HISTORY_LIMIT / 4);
+
+        if (ss->ttHit && is_valid(ttData.value))
+        {
+            const bool agree      = ttData.bound == BOUND_EXACT
+                                 || (ttData.bound == BOUND_UPPER && ttData.value <= ss->staticEval)
+                                 || (ttData.bound == BOUND_LOWER && ttData.value >= ss->staticEval);
+            const int  complexity = agree ? std::abs(ttData.value - ss->staticEval) : 0;
+            bonus = std::clamp(int(bonus * std::min(1.21, 1.0 + std::log2(complexity + 1.0) / 46)),
+                               -CORRECTION_HISTORY_LIMIT / 4, CORRECTION_HISTORY_LIMIT / 4);
+        }
         update_correction_history(pos, ss, *this, 1061 * bonus / 1024);
     }
 
