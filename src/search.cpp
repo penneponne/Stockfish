@@ -100,13 +100,12 @@ int correction_value(const Worker& w, const Position& pos, const Stack* const ss
     const int   micv   = shared.minor_piece_correction_entry(pos)[us].minor;
     const int   wnpcv  = shared.nonpawn_correction_entry<WHITE>(pos)[us].nonPawnWhite;
     const int   bnpcv  = shared.nonpawn_correction_entry<BLACK>(pos)[us].nonPawnBlack;
-    const int   cntcv =
-      m.is_ok()
-          ? 7885
-              * ((*(ss - 2)->continuationCorrectionHistory)[pos.piece_on(m.to_sq())][m.to_sq()]
-                 + (*(ss - 4)->continuationCorrectionHistory)[pos.piece_on(m.to_sq())][m.to_sq()])
-            + 6307 * (*(ss - 6)->continuationCorrectionHistory)[pos.piece_on(m.to_sq())][m.to_sq()]
-          : 80695;
+    const auto  cch    = [&](int i) {
+        return int((*(ss - i)->continuationCorrectionHistory)[pos.piece_on(m.to_sq())][m.to_sq()]);
+    };
+    const int cntcv = m.is_ok() ? 7885 * (cch(2) + cch(4)) + 6307 * cch(6) + 3180 * cch(3)
+                                    + 3835 * cch(5) + 2764 * cch(7)
+                                : 80695;
 
     return 13806 * pcv + 9512 * micv + 11615 * (wnpcv + bnpcv) + cntcv;
 }
@@ -137,8 +136,11 @@ void update_correction_history(const Position& pos,
         const Square to = m.to_sq();
         const Piece  pc = pos.piece_on(to);
         (*(ss - 2)->continuationCorrectionHistory)[pc][to] << bonus * 130 / 128;
+        (*(ss - 3)->continuationCorrectionHistory)[pc][to] << bonus * 70 / 128;
         (*(ss - 4)->continuationCorrectionHistory)[pc][to] << bonus * 70 / 128;
+        (*(ss - 5)->continuationCorrectionHistory)[pc][to] << bonus * 70 / 128;
         (*(ss - 6)->continuationCorrectionHistory)[pc][to] << bonus * 35 / 128;
+        (*(ss - 7)->continuationCorrectionHistory)[pc][to] << bonus * 70 / 128;
     }
 }
 
@@ -673,9 +675,8 @@ void Search::Worker::do_move(Position&    pos,
         const Piece  pc = pos.moved_piece(move);
         const Square to = move.to_sq();
 
-        prefetch(&(*(ss - 1)->continuationCorrectionHistory)[pc][to]);
-        prefetch(&(*(ss - 3)->continuationCorrectionHistory)[pc][to]);
-        prefetch(&(*(ss - 5)->continuationCorrectionHistory)[pc][to]);
+        for (int i = 1; i <= 6; ++i)
+            prefetch(&(*(ss - i)->continuationCorrectionHistory)[pc][to]);
     }
 
     ++nodes;
