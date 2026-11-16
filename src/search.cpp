@@ -117,6 +117,17 @@ Value to_corrected_static_eval(const Value v, const int cv) {
     return std::clamp(v + cv / 131072, VALUE_TB_LOSS_IN_MAX_PLY + 1, VALUE_TB_WIN_IN_MAX_PLY - 1);
 }
 
+int stochastic_div128(int num) {
+    static thread_local u32 s = 0x9E3779B9u;
+    const int               q = num / 128, r = num % 128;
+    if (!r)
+        return q;
+    s ^= s << 13;
+    s ^= s >> 17;
+    s ^= s << 5;
+    return int(s & 127) < std::abs(r) ? q + (r < 0 ? -1 : 1) : q;
+}
+
 void update_correction_history(const Position& pos,
                                Stack* const    ss,
                                Search::Worker& workerThread,
@@ -128,17 +139,19 @@ void update_correction_history(const Position& pos,
     auto&         shared        = workerThread.sharedHistory;
 
     shared.pawn_correction_entry(pos)[us].pawn << bonus;
-    shared.minor_piece_correction_entry(pos)[us].minor << bonus * 150 / 128;
-    shared.nonpawn_correction_entry<WHITE>(pos)[us].nonPawnWhite << bonus * nonPawnWeight / 128;
-    shared.nonpawn_correction_entry<BLACK>(pos)[us].nonPawnBlack << bonus * nonPawnWeight / 128;
+    shared.minor_piece_correction_entry(pos)[us].minor << stochastic_div128(bonus * 150);
+    shared.nonpawn_correction_entry<WHITE>(pos)[us].nonPawnWhite
+      << stochastic_div128(bonus * nonPawnWeight);
+    shared.nonpawn_correction_entry<BLACK>(pos)[us].nonPawnBlack
+      << stochastic_div128(bonus * nonPawnWeight);
 
     if (m.is_ok())
     {
         const Square to = m.to_sq();
         const Piece  pc = pos.piece_on(to);
-        (*(ss - 2)->continuationCorrectionHistory)[pc][to] << bonus * 130 / 128;
-        (*(ss - 4)->continuationCorrectionHistory)[pc][to] << bonus * 70 / 128;
-        (*(ss - 6)->continuationCorrectionHistory)[pc][to] << bonus * 35 / 128;
+        (*(ss - 2)->continuationCorrectionHistory)[pc][to] << stochastic_div128(bonus * 130);
+        (*(ss - 4)->continuationCorrectionHistory)[pc][to] << stochastic_div128(bonus * 70);
+        (*(ss - 6)->continuationCorrectionHistory)[pc][to] << stochastic_div128(bonus * 35);
     }
 }
 
