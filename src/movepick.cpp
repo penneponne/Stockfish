@@ -164,7 +164,9 @@ MovePicker::MovePicker(const Position&              p,
 
     first_stage = pos.checkers() ? EVASION : depth > 0 ? GOOD_CAPTURE : QSEARCH;
 
-    stage = ttm && pos.legal(ttm) ? TT : INIT_FIRST_STAGE;
+    stage = ttm && (first_stage != QSEARCH || pos.capture_stage(ttm)) && pos.legal(ttm)
+            ? TT
+            : INIT_FIRST_STAGE;
 }
 
 // MovePicker constructor for ProbCut: we generate captures with Static Exchange
