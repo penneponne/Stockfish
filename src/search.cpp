@@ -1361,6 +1361,9 @@ moves_loop:  // When in check, search starts here
         if (ttCapture)
             r += 1079;
 
+        if (!givesCheck)
+            r += 955;
+
         // Increase reduction if next ply has a lot of fail high
         if ((ss + 1)->cutoffCnt > 1)
             r += 264 + 1095 * ((ss + 1)->cutoffCnt > 2) + 1138 * allNode;
