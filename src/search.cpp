@@ -117,6 +117,13 @@ Value to_corrected_static_eval(const Value v, const int cv) {
     return std::clamp(v + cv / 131072, VALUE_TB_LOSS_IN_MAX_PLY + 1, VALUE_TB_WIN_IN_MAX_PLY - 1);
 }
 
+auto& prior_pawn_entry(SharedHistories& sh, const Position& pos, const Move m) {
+    Square wksq = pos.square<KING>(WHITE), bksq = pos.square<KING>(BLACK);
+    if (m.type_of() == CASTLING || type_of(pos.piece_on(m.to_sq())) == KING)
+        (pos.side_to_move() == WHITE ? bksq : wksq) = m.from_sq();
+    return sh.pawn_entry(pos, wksq, bksq);
+}
+
 void update_correction_history(const Position& pos,
                                Stack* const    ss,
                                Search::Worker& workerThread,
@@ -1008,7 +1015,9 @@ Value Search::Worker::search(
         mainHistory[~us][((ss - 1)->currentMove).raw()] << evalDiff * 11;
         if (!ttHit && type_of(pos.piece_on(prevSq)) != PAWN
             && ((ss - 1)->currentMove).type_of() != PROMOTION)
-            sharedHistory.pawn_entry(pos)[pos.piece_on(prevSq)][prevSq] << evalDiff * 13;
+            prior_pawn_entry(sharedHistory, pos,
+                             (ss - 1)->currentMove)[pos.piece_on(prevSq)][prevSq]
+              << evalDiff * 13;
     }
 
 
@@ -1626,7 +1635,9 @@ moves_loop:  // When in check, search starts here
         mainHistory[~us][((ss - 1)->currentMove).raw()] << scaledBonus * 215 / 32768;
 
         if (type_of(pos.piece_on(prevSq)) != PAWN && ((ss - 1)->currentMove).type_of() != PROMOTION)
-            sharedHistory.pawn_entry(pos)[pos.piece_on(prevSq)][prevSq] << scaledBonus * 324 / 8192;
+            prior_pawn_entry(sharedHistory, pos,
+                             (ss - 1)->currentMove)[pos.piece_on(prevSq)][prevSq]
+              << scaledBonus * 324 / 8192;
     }
 
     // Bonus for prior capture countermove that caused the fail low

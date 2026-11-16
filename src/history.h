@@ -216,11 +216,20 @@ struct SharedHistories {
 
     usize get_size() const { return sizeMinus1 + 1; }
 
+    static Key pawn_history_key(Key pawnKey, Square wksq, Square bksq) {
+        return pawnKey ^ ((Key(bksq) * 64 + Key(wksq)) * 0x9E3779B97F4A7C15ULL >> 20);
+    }
+
+    auto& pawn_entry(const Position& pos, Square wksq, Square bksq) {
+        return pawnHistory[pawn_history_key(pos.pawn_key(), wksq, bksq) & pawnHistSizeMinus1];
+    }
     auto& pawn_entry(const Position& pos) {
-        return pawnHistory[pos.pawn_key() & pawnHistSizeMinus1];
+        return pawn_entry(pos, pos.square<KING>(WHITE), pos.square<KING>(BLACK));
     }
     const auto& pawn_entry(const Position& pos) const {
-        return pawnHistory[pos.pawn_key() & pawnHistSizeMinus1];
+        return pawnHistory[pawn_history_key(pos.pawn_key(), pos.square<KING>(WHITE),
+                                            pos.square<KING>(BLACK))
+                           & pawnHistSizeMinus1];
     }
 
     auto& pawn_correction_entry(const Position& pos) {
