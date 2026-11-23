@@ -1893,6 +1893,11 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta)
     if (!is_decisive(bestValue) && bestValue > beta)
         bestValue = (462 * bestValue + 562 * beta) / 1024;
 
+    if (bestValue >= beta && bestMove && pos.capture_stage(bestMove))
+        captureHistory[pos.moved_piece(bestMove)][bestMove.to_sq()]
+                      [type_of(pos.piece_on(bestMove.to_sq()))]
+          << 100;
+
     // Step 10. Save gathered info in transposition table. The static evaluation
     // is saved as it was before adjustment by correction history.
     ttWriter.write(posKey, value_to_tt(bestValue, ss->ply), pvHit,
