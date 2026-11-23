@@ -1698,7 +1698,7 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta)
     Move  move, bestMove;
     Value bestValue, value, futilityBase;
     bool  pvHit, givesCheck, capture;
-    int   moveCount;
+    int   moveCount, seeMargin = 0;
 
     // Step 1. Initialize node
     if (PvNode)
@@ -1782,6 +1782,7 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta)
             alpha = bestValue;
 
         futilityBase = ss->staticEval + 306;
+        seeMargin    = std::min(std::abs(correctionValue) / 131072, 141);
     }
 
     const PieceToHistory* contHist[] = {(ss - 1)->continuationHistory};
@@ -1838,7 +1839,7 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta)
                 continue;
 
             // Do not search moves with bad enough SEE values
-            if (!pos.see_ge(move, -74))
+            if (!pos.see_ge(move, -74 - seeMargin))
                 continue;
         }
 
