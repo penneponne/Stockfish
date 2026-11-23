@@ -1272,7 +1272,16 @@ moves_loop:  // When in check, search starts here
             && is_valid(ttData.value) && !is_decisive(ttData.value) && (ttData.bound & BOUND_LOWER)
             && ttData.depth >= depth - 3 && !is_shuffling(move, ss, pos) && !seekMate)
         {
-            Value singularBeta  = ttData.value - (59 + 66 * (ss->ttPv && !PvNode)) * depth / 63;
+            const int histScore =
+              capture
+                ? captureHistory[movedPiece][move.to_sq()][type_of(pos.piece_on(move.to_sq()))]
+                : mainHistory[us][move.raw()] + (*contHist[0])[movedPiece][move.to_sq()]
+                    + (*contHist[1])[movedPiece][move.to_sq()];
+            int singularMargin = (59 + 66 * (ss->ttPv && !PvNode)) * depth / 63;
+            singularMargin +=
+              std::clamp((histScore - 15000) / 1024, -singularMargin, singularMargin);
+
+            Value singularBeta  = ttData.value - singularMargin;
             Depth singularDepth = newDepth / 2;
 
             ss->excludedMove = move;
