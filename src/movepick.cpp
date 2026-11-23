@@ -207,7 +207,7 @@ ExtMove* MovePicker::generate_and_score() {
     const auto* mainHist = Type != CAPTURES ? &(*mainHistory)[us] : nullptr;
     const auto* pawnHist = Type == QUIETS ? &sharedHistory->pawn_entry(pos) : nullptr;
     const auto* ch0      = Type != CAPTURES ? continuationHistory[0] : nullptr;
-    const auto* ch1      = Type == QUIETS ? continuationHistory[1] : nullptr;
+    const auto* ch1      = Type != CAPTURES && depth > 0 ? continuationHistory[1] : nullptr;
     const auto* ch2      = Type == QUIETS ? continuationHistory[2] : nullptr;
     const auto* ch3      = Type == QUIETS ? continuationHistory[3] : nullptr;
     const auto* ch5      = Type == QUIETS ? continuationHistory[5] : nullptr;
@@ -263,7 +263,7 @@ ExtMove* MovePicker::generate_and_score() {
             if (pos.capture_stage(m))
                 m.value = PieceValue[capturedPiece] + (1 << 28);
             else
-                m.value = (*mainHist)[m.raw()] + (*ch0)[pc][to];
+                m.value = (*mainHist)[m.raw()] + (*ch0)[pc][to] + (ch1 ? (*ch1)[pc][to] : 0);
         }
     }
     return it;
