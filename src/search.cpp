@@ -164,8 +164,15 @@ bool is_shuffling(Move move, Stack* const ss, const Position& pos) {
         return false;
     if (pos.plies_from_null() < 6 || ss->ply < 20)
         return false;
-    return move.from_sq() == (ss - 2)->currentMove.to_sq()
-        && (ss - 2)->currentMove.from_sq() == (ss - 4)->currentMove.to_sq();
+
+    const Move m2 = (ss - 2)->currentMove, m4 = (ss - 4)->currentMove;
+
+    // The same piece made each of our last three moves...
+    if (move.from_sq() != m2.to_sq() || m2.from_sq() != m4.to_sq())
+        return false;
+
+    // ...and returned to a square it had left on the way
+    return m2.to_sq() == m4.from_sq() || move.to_sq() == m4.from_sq() || move.to_sq() == m2.from_sq();
 }
 
 }  // namespace
