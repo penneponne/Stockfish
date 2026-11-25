@@ -1337,55 +1337,59 @@ moves_loop:  // When in check, search starts here
 
         // Step 18. Compute and apply late moves reductions/extensions (LMR)
 
-        // Decrease reduction for PvNodes (*Scaler)
-        if (ss->ttPv)
-            r -= 3023 + PvNode * 1004 + (ttData.value > alpha) * 885
-               + (ttData.depth >= depth) * (816 + cutNode * 940);
+        if (PvNode || depth > 1)
+        {
+            // Decrease reduction for PvNodes (*Scaler)
+            if (ss->ttPv)
+                r -= 3023 + PvNode * 1004 + (ttData.value > alpha) * 885
+                   + (ttData.depth >= depth) * (816 + cutNode * 940);
 
-        // Base reduction offset to compensate for other tweaks
-        r += 697;
+            // Base reduction offset to compensate for other tweaks
+            r += 697;
 
-        r -= moveCount * 65;
-        r -= std::abs(correctionValue) / 26310;
+            r -= moveCount * 65;
+            r -= std::abs(correctionValue) / 26310;
 
-        // Increase reduction for cut nodes
-        if (cutNode)
-            r += 4026 + 933 * !ttData.move;
+            // Increase reduction for cut nodes
+            if (cutNode)
+                r += 4026 + 933 * !ttData.move;
 
-        // Increase reduction if ttMove is a capture
-        if (ttCapture)
-            r += 1079;
+            // Increase reduction if ttMove is a capture
+            if (ttCapture)
+                r += 1079;
 
-        // Increase reduction if next ply has a lot of fail high
-        if ((ss + 1)->cutoffCnt > 1)
-            r += 264 + 1095 * ((ss + 1)->cutoffCnt > 2) + 1138 * allNode;
+            // Increase reduction if next ply has a lot of fail high
+            if ((ss + 1)->cutoffCnt > 1)
+                r += 264 + 1095 * ((ss + 1)->cutoffCnt > 2) + 1138 * allNode;
 
-        // For first picked move (ttMove) reduce reduction
-        else if (move == ttData.move)
-            r -= 2179;
+            // For first picked move (ttMove) reduce reduction
+            else if (move == ttData.move)
+                r -= 2179;
 
-        if (capture)
-            ss->statScore = 873 * int(PieceValue[pos.captured_piece()]) / 128
-                          + captureHistory[movedPiece][move.to_sq()][type_of(pos.captured_piece())];
-        else
-            ss->statScore =
-              (2252 * mainHistory[us][move.raw()] + 1126 * (*contHist[0])[movedPiece][move.to_sq()]
-               + 1093 * (*contHist[1])[movedPiece][move.to_sq()])
-              / 1024;
+            if (capture)
+                ss->statScore =
+                  873 * int(PieceValue[pos.captured_piece()]) / 128
+                  + captureHistory[movedPiece][move.to_sq()][type_of(pos.captured_piece())];
+            else
+                ss->statScore = (2252 * mainHistory[us][move.raw()]
+                                 + 1126 * (*contHist[0])[movedPiece][move.to_sq()]
+                                 + 1093 * (*contHist[1])[movedPiece][move.to_sq()])
+                              / 1024;
 
-        // Decrease/increase reduction for moves with a good/bad history
-        r -= ss->statScore * 439 / 4096;
+            // Decrease/increase reduction for moves with a good/bad history
+            r -= ss->statScore * 439 / 4096;
 
-        if (!capture && !is_decisive(alpha))
-            r += 3 * std::clamp(alpha - eval, -64, 96);
+            if (!capture && !is_decisive(alpha))
+                r += 3 * std::clamp(alpha - eval, -64, 96);
 
-        // Scale up reductions for expected ALL nodes
-        if (allNode)
-            r += r * 276 / (256 * depth + 268);
+            // Scale up reductions for expected ALL nodes
+            if (allNode)
+                r += r * 276 / (256 * depth + 268);
 
-        // When seeking a mate, reduce non-checking moves more and checking moves less
-        if (seekMate && r > 0)
-            r += (givesCheck ? -r : r) / 4;
+            // When seeking a mate, reduce non-checking moves more and checking moves less
+            if (seekMate && r > 0)
+                r += (givesCheck ? -r : r) / 4;
+        }
 
         // Apply the computed LMR
         if (depth >= 2 && moveCount > 1)
