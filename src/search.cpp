@@ -168,6 +168,14 @@ bool is_shuffling(Move move, Stack* const ss, const Position& pos) {
         && (ss - 2)->currentMove.from_sq() == (ss - 4)->currentMove.to_sq();
 }
 
+Bitboard king_zone5(Square s) {
+    Bitboard b = square_bb(s);
+    b |= shift(b, EAST) | shift(b, WEST);
+    b |= shift(b, EAST) | shift(b, WEST);
+    b |= shift(b, NORTH) | shift(b, SOUTH);
+    return b | shift(b, NORTH) | shift(b, SOUTH);
+}
+
 }  // namespace
 
 Search::Worker::Worker(SharedState&                   sharedState,
@@ -1227,8 +1235,11 @@ moves_loop:  // When in check, search starts here
                             + (*contHist[1])[movedPiece][move.to_sq()]
                             + sharedHistory.pawn_entry(pos)[movedPiece][move.to_sq()];
 
+                const bool kingAttack = alpha < -300 && !is_loss(alpha)
+                                     && (king_zone5(pos.square<KING>(~us)) & move.to_sq());
+
                 // Continuation history based pruning
-                if (history < -4136 * depth)
+                if (history < -4136 * depth && !kingAttack)
                     continue;
 
                 history += 69 * mainHistory[us][move.raw()] / 32;
@@ -1241,7 +1252,7 @@ moves_loop:  // When in check, search starts here
 
                 // Futility pruning: parent node
                 // (*Scaler): Generally, more frequent futility pruning scales well
-                if (!ss->inCheck && lmrDepth < 12 && futilityValue <= alpha)
+                if (!ss->inCheck && lmrDepth < 12 && futilityValue <= alpha && !kingAttack)
                 {
                     if (bestValue <= futilityValue && !is_win(futilityValue))
                         bestValue = futilityValue;
