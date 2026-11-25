@@ -479,6 +479,24 @@ sf_always_inline Tile apply_feature_diff(Tile acc, const i8* add, const i8* sub)
 
 #endif
 
+// Refreshes start every changed row at tile 0, which prefetch_next_tile() never
+// covers. Prefetch those first tiles before the tile loop.
+#if defined(USE_PEXT)
+void prefetch_first_tiles(const PSQFeatureSet::IndexList& removed,
+                          const PSQFeatureSet::IndexList& added,
+                          const WeightType*               psqWeights) {
+    if constexpr (Dimensions / Tiling::TileHeight > 2)
+        for (const auto* list : {&removed, &added})
+            for (const auto index : *list)
+                for (IndexType k = 0; k < Tiling::TileHeight; k += CacheLineSize)
+                    prefetch(&psqWeights[usize(index) * Dimensions + k]);
+}
+#else
+void prefetch_first_tiles(const PSQFeatureSet::IndexList&,
+                          const PSQFeatureSet::IndexList&,
+                          const WeightType*) { }
+#endif
+
 // The weight-table base already includes the tile offset.
 template<int sign>
 sf_always_inline Tile
@@ -944,6 +962,7 @@ void update_accumulator_hybrid(Color                     perspective,
                                previousPieces, previousPieceBB, oldRemove, oldAdd);
     append_changed_psq_indices(perspective, newKsq, newEntry.pieces, newEntry.pieceBB,
                                currentPieces, pos.pieces(), newRemove, newAdd);
+    prefetch_first_tiles(newRemove, newAdd, psqWeights);
 
     ThreatFeatureSet::IndexList thrRemoved, thrAdded;  // also contain pp indices
     const auto*                 threatPpBase = &featureTransformer.threatAndPpWeights[0];
@@ -1001,6 +1020,7 @@ void update_accumulator_refresh_cache(Color                     perspective,
 
     append_changed_psq_indices(perspective, ksq, entry.pieces, entry.pieceBB, pos.piece_array(),
                                pos.pieces(), removed, added);
+    prefetch_first_tiles(removed, added, psqWeights);
 
     entry.pieceBB = pos.pieces();
     entry.pieces  = pos.piece_array();
